@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+[ "${1}" == "t" ] && session=tachiyomi || session=aniyomi
+
+default_dir="${session}-extensions/src/*"
+target_dir="${default_dir}/${2}"
+
+tmuxCmd(){
+    tmux send -t $session "${@}" C-m
+}
+
+openDir() {
+    [ -z $1 ] && tmuxCmd "cd ${target_dir}" || tmuxCmd "cd ${1}"
+}
+
+neww(){
+    tmux neww -t $session -n $1
+}
+
+splitw(){
+    tmux splitw -t $session
+}
+
+tmux has -t $session &> /dev/null
+if [ $? != 0 ]; then
+    tmux new -s $session -n Build -d
+    openDir
+    neww editor
+        openDir $target_dir/src/eu/kanade/tachiyomi/*xtension/*/${2}
+    neww search
+        openDir $default_dir
+        splitw
+            openDir aniyomi/app/src/main/java/eu/kanade/tachiyomi/animesource
+    neww testes
+        openDir teste
+    neww monitor
+        #tmuxCmd "su -c 'top -d 10 -s 3 -o PID,USER,RES,CMDLINE'"
+        tmuxCmd mitmproxy
+        splitw
+            tmuxCmd "python ~/pidcat xyz.jmir.tachiyomi.mi.debug"
+fi
+
+tmux attach -t $session
