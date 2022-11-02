@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+# DEPENDENCIES: fd, parallel, sed, grep, find and gnu coreutils(for uniq / sort)
+getHash(){
+    # Ignores the first three lines and calculates the sha1 hash
+    local hash=$(tail +3 $1 | sha1sum | cut -d- -f1)
+
+    # gets the first two dirnames of the file path
+    # if it runs inside src, the results are going to be like
+    # <lang>/<extension>
+    local name=$(echo $1 | cut -d/ -f2-3)
+    echo -e "${name}:\t\t${hash}"
+}
+
+export -f getHash
+
+fd $1 \
+| SHELL=bash parallel getHash \
+| sort -k 2 \
+| uniq -c -f 1 \
+| grep --color=always -P "\s\d+\s"
