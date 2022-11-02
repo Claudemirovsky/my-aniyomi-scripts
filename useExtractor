@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+
+# usage: addDep <libname> <build.gradle path>
+# ex: addDep streamtape-extractor src/en/zoro/build.gradle
+addDep(){
+    local implStr="    implementation(project(':lib-$1'))"
+    local file=$2
+    local depsStr="dependencies {"
+
+    # Tries to add the implementation line in the dependencies block
+    # if it isn't there. It will create a dependencies {} block if necessary.
+    if ! grep -q $implStr $file; then
+        if ! grep -q "dependencies" $file; then
+            sed -i "s/}/}\n\n$depsStr\n$implStr\n}\n/" $file
+        else
+            sed -i "s/$depsStr/$depsStr\n$implStr/" $file
+        fi
+    fi
+}
+
+# Replaces the old "import ...." line with a new one that 
+# uses the extractor class.
+changeImport(){
+    local fileName=$1
+    local libName=$2
+    local className=$3
+    local manifestPath="../lib/$libName/src/main/AndroidManifest.xml"
+    # package of the extractor lib, like "eu.kanade.tachiyomi.lib.<NAME>"
+    local package=$(grep package $manifestPath | cut -d '"' -f 2)
+    local importStr="import $package.$className"
+    if ! grep -q "$importStr" $fileName; then
+        sed -i "s/import .*$className/$importStr/" $fileName
+    fi
+}
+
+getExtractorClass() {
+    local libName=$1
+    local filesPath=../lib/$libName/src/main/java/eu/kanade/tachiyomi/lib/*
+    local lastDir=$(echo $filesPath | cut -d "/" -f 11)
+    ls $filesPath | grep -i "$lastDir.kt" | sed "s/.kt//"
+}
+
+extractorLib=$1
+extractorClass=$(getExtractorClass $extractorLib)
+# base path of extensions that have the extractor class
+extensions=$(fd $extractorClass | cut -d "/" -f 2-3)
+changedClasses=""
+completed=0
+all=$(echo $extensions | tr " " "\n"  | wc -l)
+
+for ext in $extensions; do
+    buildFile="$ext/build.gradle"
+    className=$(grep extClass $buildFile | cut -d "'" -f 2)
+    pkgPath=$(grep pkgNameSuffix $buildFile | cut -d "'" -f 2 | sed "s@\.@/@")
+    addDep $extractorLib $buildFile
+
+    fullPath="$ext/src/eu/kanade/tachiyomi/animeextension/$pkgPath"
+    extractor="$fullPath/extractors/$extractorClass.kt"
+    $EDITOR $extractor 
+    rm $extractor
+
+    mainFiles="$fullPath/${className/./}.kt"
+    if [[ "$className" =~ "Factory" ]]; then
+        mainFiles+=" ${currentMainFiles/Factory/}"
+    fi
+
+    for mainFile in $mainFiles; do
+        changeImport $mainFile $extractorLib $extractorClass
+
+        matchLine=$(grep -n "$extractorClass(" $mainFile | cut -d: -f1)
+        if [[ -z "$matchLine"]]; then
+          $EDITOR $mainFile
+        else
+          $EDITOR $mainFile:$matchLine
+        fi
+
+        changedClasses+="$mainFile "
+    done
+    completed=$((completed+1))
+    printf "\r$ext done, $completed/$all. Press any key to continue "
+    read -n 1 t
+done
+
+if [[ -n "$changedClasses" ]]; then
+    ktlint -F $changedClasses
+fi
