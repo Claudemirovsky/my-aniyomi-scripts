@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+
+GIT_USER=$(git config --get user.name)
+GIT_BRANCH=$(git branch --show-current)
+
+export GH_REPO=$GIT_USER/extension-builder
+
+PROJECT=$(echo ${PWD} | rev | cut -d/ -f -2 | rev)
+LANG=${PROJECT%/*}
+EXT=${PROJECT##*/}
+ATTEMPT="$EXT($LANG): Attempt"
+
+# This is going to commit and push any changes
+# The git log is going to be like:
+# "zoro(en): Attempt #69"
+# "zoro(en): Attempt #68"....
+# until you use squashAttempts.
+commitAttempt() {
+  ktlint -F **.kt
+  git add .
+
+  local lastCommit=$(git log -1 --pretty="%s")
+
+  if [[ $lastCommit =~ "Attempt" ]]; then
+    local attemptCount=$((${lastCommit##*#}+1))
+    git commit -m "$ATTEMPT #$attemptCount"
+  else
+    git commit -m "$ATTEMPT #1"
+  fi
+
+  git push origin +$GIT_BRANCH
+}
+
+getLastRunId() {
+  gh run list --json databaseId --jq .[0].databaseId
+}
+
+tryIt() {
+  if [[ $1 == "rerun" ]]; then
+    local run_id=$(getLastRunId)
+    gh run rerun $run_id
+    sleep 1
+  else
+    gh workflow run build_single_extension.yml \
+      -f lang=$LANG -f extension=$EXT -f git-ref=$GIT_BRANCH
+    sleep 3
+    local run_id=$(getLastRunId)
+  fi
+
+  # Install the apk if the build ends with success, else show logs
+  gh run watch --exit-status $run_id \
+    && installArtifacts \
+    || gh run view --log-failed $run_id
+
+}
+
+installArtifacts() {
+  gh run download -D /sdcard/APKS -n "$LANG-$EXT"
+  adb install /sdcard/APKS/*yomi-$LANG.$EXT-v*-debug.apk
+  rm /sdcard/APKS/*yomi-$LANG.$EXT-v*-debug.apk
+  read -n 1 -p "Open aniyomi? " openit
+  case ${openit^^} in
+    Y|YES|S|SIM) openAniyomi;;
+    *) echo -e "\nOK" ;;
+  esac
+}
+
+openAniyomi(){
+  local package="xyz.jmir.tachiyomi.mi.debug"
+  local activity="eu.kanade.tachiyomi.ui.main.MainActivity"
+  adb shell am force-stop $package
+  adb shell am start -n $package/$activity
+}
+
+squashAttempts() {
+  local hash=$(git log --pretty="%H" --reverse --grep "): Attempt #" | head -n 1)
+  git reset --soft ${hash}~
+  git commit
+  git push origin +$GIT_BRANCH
+}
+
+help() {
+    cat <<EOF
+  try|build ->
+      Commit attempt, push to remote and run workflow.
+      if it fails, it will show failed logs
+      else, it will download and install the artifacts.
+
+      You can disable the commit attempt by putting [nocommit] after it
+      You can make it rerun a workflow by putting [rerun] after it
+
+  commit|squash ->
+      Merge/squash commit attempts into one and push to remote
+EOF
+}
+
+case "$1" in
+  try|build)
+    [[ ! "$@" =~ "nocommit" ]] && commitAttempt
+    [[ ! "$@" =~ "rerun" ]] && tryIt || tryIt rerun
+    ;;
+  commit|squash) squashAttempts;;
+  *) help;;
+esac
