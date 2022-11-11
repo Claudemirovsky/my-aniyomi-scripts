@@ -54,10 +54,14 @@ tryIt() {
 
 }
 
+downloadArtifacts() {
+    gh run download -D /sdcard/APKS -n "$LANG-$EXT"
+}
+
 installArtifacts() {
-  gh run download -D /sdcard/APKS -n "$LANG-$EXT"
-  adb install /sdcard/APKS/*yomi-$LANG.$EXT-v*-debug.apk
   rm /sdcard/APKS/*yomi-$LANG.$EXT-v*-debug.apk
+  downloadArtifacts
+  adb install /sdcard/APKS/*yomi-$LANG.$EXT-v*-debug.apk
   read -n 1 -p "Open aniyomi? " openit
   case ${openit^^} in
     Y|YES|S|SIM) openAniyomi;;
@@ -89,6 +93,9 @@ help() {
       You can disable the commit attempt by putting [nocommit] after it
       You can make it rerun a workflow by putting [rerun] after it
 
+  down|get ->
+      Will download the artifacts from the last workflow run.
+
   commit|squash ->
       Merge/squash commit attempts into one and push to remote
 EOF
@@ -100,5 +107,6 @@ case "$1" in
     [[ ! "$@" =~ "rerun" ]] && tryIt || tryIt rerun
     ;;
   commit|squash) squashAttempts;;
+  down|get) downloadArtifacts;;
   *) help;;
 esac
