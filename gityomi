@@ -61,10 +61,12 @@ downloadArtifacts() {
 installArtifacts() {
   rm /sdcard/APKS/*yomi-$LANG.$EXT-v*-debug.apk
   downloadArtifacts
-  adb install /sdcard/APKS/*yomi-$LANG.$EXT-v*-debug.apk
-  read -n 1 -p "Open aniyomi? " openit
+  read -n 1 -p "Wants to install it and open aniyomi? " openit
   case ${openit^^} in
-    Y|YES|S|SIM) openAniyomi;;
+    Y|S)
+        openAniyomi
+        adb install /sdcard/APKS/*yomi-$LANG.$EXT-v*-debug.apk
+        ;;
     *) echo -e "\nOK" ;;
   esac
 }
