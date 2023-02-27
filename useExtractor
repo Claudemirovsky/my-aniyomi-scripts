@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 # usage: addDep <libname> <build.gradle path>
 # ex: addDep streamtape-extractor src/en/zoro/build.gradle
 addDep(){
@@ -24,9 +23,15 @@ changeImport(){
     local fileName=$1
     local libName=$2
     local className=$3
-    local manifestPath="../lib/$libName/src/main/AndroidManifest.xml"
+    local basePath="../lib/$libName"
+    local manifestPath="$basePath/src/main/AndroidManifest.xml"
+    local gradlePath="$basePath/build.gradle.kts"
+    if [ -e $manifestPath ]; then
+        local package=$(grep package $manifestPath | cut -d '"' -f 2)
+    else
+        local package=$(grep namespace $gradlePath | cut -d '"' -f 2)
+    fi
     # package of the extractor lib, like "eu.kanade.tachiyomi.lib.<NAME>"
-    local package=$(grep package $manifestPath | cut -d '"' -f 2)
     local importStr="import $package.$className"
     if ! grep -q "$importStr" $fileName; then
         sed -i "s/import .*$className/$importStr/" $fileName
@@ -41,9 +46,17 @@ getExtractorClass() {
 }
 
 extractorLib=$1
+if [[ ! $extractorLib =~ "-extractor" ]]; then
+    extractorLib="$extractorLib-extractor"
+fi
+
+if [[ ! -d ../lib/$extractorLib ]]; then
+    echo "Library $extractorLib does not exist!"
+    exit
+fi
 extractorClass=$(getExtractorClass $extractorLib)
 # base path of extensions that have the extractor class
-extensions=$(fd $extractorClass | cut -d "/" -f 2-3)
+extensions=$(fd $extractorClass | cut -d "/" -f 1-2)
 changedClasses=""
 completed=0
 all=$(echo $extensions | tr " " "\n"  | wc -l)
@@ -61,24 +74,24 @@ for ext in $extensions; do
 
     mainFiles="$fullPath/${className/./}.kt"
     if [[ "$className" =~ "Factory" ]]; then
-        mainFiles+=" ${currentMainFiles/Factory/}"
+        mainFiles+=" ${mainFiles/Factory/}"
     fi
 
     for mainFile in $mainFiles; do
         changeImport $mainFile $extractorLib $extractorClass
 
         matchLine=$(grep -n "$extractorClass(" $mainFile | cut -d: -f1)
-        if [[ -z "$matchLine"]]; then
+        if [[ -z "$matchLine" ]]; then
           $EDITOR $mainFile
         else
-          $EDITOR $mainFile:$matchLine
+          $EDITOR $mainFile +$matchLine
         fi
 
         changedClasses+="$mainFile "
     done
     completed=$((completed+1))
     printf "\r$ext done, $completed/$all. Press any key to continue "
-    read -n 1 t
+    read -e -n 1 t
 done
 
 if [[ -n "$changedClasses" ]]; then
