@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+openDialog() {
+  read -n 1 -p "Wants to open aniyomi? " openit
+  case ${openit^^} in
+    Y|S)
+        openAniyomi
+        ;;
+    *) echo -e "\nOK" ;;
+  esac
+}
+
+openAniyomi(){
+  local package="xyz.jmir.tachiyomi.mi.debug"
+  local activity="eu.kanade.tachiyomi.ui.main.MainActivity"
+  adb shell am force-stop $package
+  adb shell "am start -n $package/$activity"
+}
+
+gradle $1 installDebug && openDialog
