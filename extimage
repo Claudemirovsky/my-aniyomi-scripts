@@ -1,0 +1,8 @@
+#!/usr/bin/bash
+#imagemagick // convert resize/crop
+orig=$1
+for icon in $(ls */ic_launcher.png); do
+    size=$(ffmpeg -i $icon 2>&1 | grep -Po "\d+x\d+")
+    echo "convert $orig -resize $size $icon"
+    convert $orig -resize $size $icon
+done
