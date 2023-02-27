@@ -2,8 +2,8 @@
 
 [ "${1}" == "t" ] && session=tachiyomi || session=aniyomi
 
-default_dir="$HOME/git/${session}-extensions/src/*"
-target_dir="${default_dir}/${2}"
+default_dir="$HOME/git/${session}-extensions/src"
+target_dir="${default_dir}/*/${2}"
 
 tmuxCmd(){
     tmux send -t $session "${@}" C-m
@@ -24,15 +24,26 @@ splitw(){
 tmux has -t $session &> /dev/null
 if [ $? != 0 ]; then
     tmux new -s $session -n Build -d
-    openDir
+        openDir
+        tmux send -t $session "anitester build/outputs/apk/debug/aniyomi*.apk"
+        splitw
+            openDir
+            tmux send -t $session "gradleyomi"
+
     neww editor
         openDir $target_dir/src/eu/kanade/tachiyomi/*xtension/*/${2}
+
     neww search
         openDir $default_dir
         splitw
             openDir $HOME/git/aniyomi/source-api/src/main/java/eu/kanade/tachiyomi/animesource/
+
     neww testes
         openDir $HOME/git/teste
+        tmux send -t $session "adbcon"
+        splitw
+            tmux send -t $session "scrcpy"
+
     neww monitor
         #tmuxCmd "su -c 'top -d 10 -s 3 -o PID,USER,RES,CMDLINE'"
         tmuxCmd mitmproxy
