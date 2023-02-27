@@ -2,7 +2,7 @@
 
 [ "${1}" == "t" ] && session=tachiyomi || session=aniyomi
 
-default_dir="${session}-extensions/src/*"
+default_dir="$HOME/git/${session}-extensions/src/*"
 target_dir="${default_dir}/${2}"
 
 tmuxCmd(){
@@ -30,9 +30,9 @@ if [ $? != 0 ]; then
     neww search
         openDir $default_dir
         splitw
-            openDir aniyomi/app/src/main/java/eu/kanade/tachiyomi/animesource
+            openDir $HOME/git/aniyomi/source-api/src/main/java/eu/kanade/tachiyomi/animesource/
     neww testes
-        openDir teste
+        openDir $HOME/git/teste
     neww monitor
         #tmuxCmd "su -c 'top -d 10 -s 3 -o PID,USER,RES,CMDLINE'"
         tmuxCmd mitmproxy
