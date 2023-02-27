@@ -1,0 +1,9 @@
+#!/usr/bin/bash
+
+getFile() { 
+    echo "$2/src/eu/kanade/tachiyomi/animeextension/$2/extractors/$1*" 
+}
+extractor=$1
+first=$2
+second=$3
+delta $(getFile $1 $2) $(getFile $1 $3)
