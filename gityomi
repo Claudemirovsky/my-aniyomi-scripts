@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+APKS_PATH=$HOME/APKS
 GIT_USER=$(git config --get user.name)
 GIT_BRANCH=$(git branch --show-current)
 
@@ -55,17 +56,17 @@ tryIt() {
 }
 
 downloadArtifacts() {
-    gh run download -D /sdcard/APKS -n "$LANG-$EXT"
+    gh run download -D $APKS_PATH -n "$LANG-$EXT"
 }
 
 installArtifacts() {
-  rm /sdcard/APKS/*yomi-$LANG.$EXT-v*-debug.apk
+  rm $APKS_PATH/*yomi-$LANG.$EXT-v*-debug.apk
   downloadArtifacts
   read -n 1 -p "Wants to install it and open aniyomi? " openit
   case ${openit^^} in
     Y|S)
         openAniyomi
-        adb install /sdcard/APKS/*yomi-$LANG.$EXT-v*-debug.apk
+        adb install $APKS_PATH/*yomi-$LANG.$EXT-v*-debug.apk
         ;;
     *) echo -e "\nOK" ;;
   esac
