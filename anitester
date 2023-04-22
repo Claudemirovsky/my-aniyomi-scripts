@@ -1,0 +1,13 @@
+#!/usr/bin/bash
+ANITESTER_REPO="Claudemirovsky/aniyomi-extensions-tester"
+SCRIPT_PATH=$(dirname "$(realpath -s "$0")")
+JAR_PATH="${SCRIPT_PATH}/anitester-min.jar"
+
+
+if [[ ! -e "${JAR_PATH}" ]]; then
+     curl -sL https://api.github.com/repos/$ANITESTER_REPO/releases/latest \
+         | jq -cr ".assets[0].browser_download_url" \
+         | xargs wget -qO "${JAR_PATH}" 
+fi
+
+java -jar "${JAR_PATH}" "$@"
