@@ -25,10 +25,10 @@ tmux has -t $session &> /dev/null
 if [ $? != 0 ]; then
     tmux new -s $session -n Build -d
         openDir
-        tmux send -t $session "anitester build/outputs/apk/debug/aniyomi*.apk"
+        tmux send -t $session "anitester build/outputs/apk/debug/aniyomi*.apk --proxy socks5://localhost:7173"
         splitw
             openDir
-            tmux send -t $session "gradleyomi"
+            tmux send -t $session "gradle assembleDebug"
 
     neww editor
         openDir $target_dir/src/eu/kanade/tachiyomi/*xtension/*/${2}
@@ -42,7 +42,7 @@ if [ $? != 0 ]; then
         openDir $HOME/git/teste
         tmux send -t $session "adbcon"
         splitw
-            tmux send -t $session "scrcpy"
+            tmux send -t $session "scrcpy -S -b2m -m1024 -t --power-off-on-close"
 
     neww monitor
         #tmuxCmd "su -c 'top -d 10 -s 3 -o PID,USER,RES,CMDLINE'"
