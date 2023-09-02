@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
-fd --min-depth 11 -t f -e .kt \
-| cut -d "/" -f 12 \
+fd -t f -e .kt "extractor*/*.kt" multisrc src \
+| grep -o '[^/]*$' \
 | sort \
 | uniq -c \
 | grep -v "1 " \
-| sort -r \
+| sort -r -n \
 | grep --color=always -P "\d+ "
