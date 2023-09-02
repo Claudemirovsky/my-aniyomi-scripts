@@ -14,7 +14,7 @@ openAniyomi(){
   local package="xyz.jmir.tachiyomi.mi.debug"
   local activity="eu.kanade.tachiyomi.ui.main.MainActivity"
   adb shell am force-stop $package
-  adb shell "am start -n $package/$activity"
+  adb shell "am start -n $package/$activity -a eu.kanade.tachiyomi.SHOW_CATALOGUES"
 }
 
 gradle $1 installDebug && openDialog
