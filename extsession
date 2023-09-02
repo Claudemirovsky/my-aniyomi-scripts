@@ -31,7 +31,7 @@ if [ $? != 0 ]; then
             tmux send -t $session "gradle assembleDebug"
 
     neww editor
-        openDir $target_dir/src/eu/kanade/tachiyomi/*xtension/*/${2}
+        openDir $target_dir/src/eu/kanade/tachiyomi/*xtension/*/*
 
     neww search
         openDir $default_dir
@@ -40,7 +40,7 @@ if [ $? != 0 ]; then
 
     neww testes
         openDir $HOME/git/teste
-        tmux send -t $session "adbcon"
+        # tmux send -t $session "adbcon"
         splitw
             tmux send -t $session "scrcpy -S -b2m -m1024 -t --power-off-on-close"
 
@@ -48,7 +48,8 @@ if [ $? != 0 ]; then
         #tmuxCmd "su -c 'top -d 10 -s 3 -o PID,USER,RES,CMDLINE'"
         tmuxCmd mitmproxy
         splitw
-            tmuxCmd "python ~/pidcat xyz.jmir.tachiyomi.mi.debug"
+            # tmuxCmd "python ~/pidcat xyz.jmir.tachiyomi.mi.debug"
+            tmuxCmd "rogcat -N xyz.jmir.tachiyomi.mi.debug"
 fi
 
 tmux attach -t $session
