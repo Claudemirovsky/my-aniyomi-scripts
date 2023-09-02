@@ -1,0 +1,32 @@
+#!/usr/bin/bash
+
+# Usage:
+# extgetter apk aniwatch -> gets aniwatch apk
+# extgetter id aniwatch -> gets aniwatch id
+# extgetter [id/apk] aniwatch reload -> updates the extensions list before doing any actions
+
+type=$1
+name=$2
+REPO=aniyomiorg/aniyomi-extensions
+INDEX_PATH=${TMPDIR:-/tmp}/index.min.json
+if [[ ! -e $INDEX_PATH ]] || [[ $3 ==  "reload" ]]; then
+    wget "https://raw.githubusercontent.com/$REPO/repo/index.min.json" -O $INDEX_PATH
+fi
+
+testname="test(\"$name\"; \"i\")"
+selector="map(select((.name | $testname) or (.pkg | $testname)))[0]"
+if [[ $type == "apk" ]]; then
+    selector+=".apk"
+fi
+data=$(jq -r "$selector" $INDEX_PATH)
+
+if [[ "$data" == "null" ]] || [[ -z "$data" ]]; then
+    echo "not found"
+    exit
+fi
+
+if [[ $type == "id" ]]; then
+    echo $data | jq .sources
+else
+    wget "https://github.com/$REPO/raw/repo/apk/$data" -O "$name.apk"
+fi
