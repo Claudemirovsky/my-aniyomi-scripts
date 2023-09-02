@@ -68,13 +68,13 @@ for ext in $extensions; do
     addDep $extractorLib $buildFile
 
     fullPath="$ext/src/eu/kanade/tachiyomi/animeextension/$pkgPath"
-    extractor="$fullPath/extractors/$extractorClass.kt"
+    extractor="$fullPath/extracto*/$extractorClass.kt"
     $EDITOR $extractor 
     rm $extractor
 
     mainFiles="$fullPath/${className/./}.kt"
     if [[ "$className" =~ "Factory" ]]; then
-        mainFiles+=" ${mainFiles/Factory/}"
+        mainFiles+=" ${mainFiles/Factory/*}"
     fi
 
     for mainFile in $mainFiles; do
