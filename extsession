@@ -42,7 +42,9 @@ getMultisrcLanguage() {
     theme=$(echo "$TARGET_DIR" | rev | cut -d/ -f2 | rev)
     mainfile=$(ag -l -Q "$theme(" "$TARGET_DIR/src" --depth 1)
 
-    grep -m 1 -Eo '"[a-z]{2,3}",' "$mainfile" | cut -d'"' -f2
+    grep -m 1 -Eo '"[a-zA-Z-]{2,5}",' "$mainfile" \
+        | cut -d'"' -f2 \
+        | cut -d'-' -f1
 }
 
 if ! tmux has -t "$SESSION" &> /dev/null; then
