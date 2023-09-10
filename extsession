@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -o pipefail
+
 [ "${1}" == "t" ] && SESSION=tachiyomi || SESSION=aniyomi
 [ "${1}" == "m" ] && IS_MULTISRC=true || IS_MULTISRC=false
 
@@ -12,16 +14,16 @@ else
     DEFAULT_DIR="${ROOT}/src"
 fi
 
-TARGET_DIR="${DEFAULT_DIR}/*/${NAME}"
+TARGET_DIR=$(compgen -G "${DEFAULT_DIR}/*/${NAME}") # Glob expansion moment
 
-if [[ ! -e $(echo $TARGET_DIR) ]]; then
+if [[ ! -e "$TARGET_DIR" ]]; then
     if $IS_MULTISRC; then echo -n "(multisrc) "; fi
     echo "Extension ${NAME} does not exist!"
     exit
 fi
 
 tmuxCmd(){
-    tmux send -t $SESSION "${@}" C-m
+    tmux send -t "$SESSION" "${@}" C-m
 }
 
 openDir() {
@@ -29,74 +31,73 @@ openDir() {
 }
 
 neww(){
-    tmux neww -t $SESSION -n $1
+    tmux new-window -t "$SESSION" -n "${@}"
 }
 
 splitw(){
-    tmux splitw -t $SESSION
+    tmux split-window -t "$SESSION"
 }
 
 getMultisrcLanguage() {
-    local theme=$(echo $TARGET_DIR | rev | cut -d/ -f2 | rev)
-    local mainfile=$(ag -l -Q "$theme(" $TARGET_DIR/src --depth 1)
+    theme=$(echo "$TARGET_DIR" | rev | cut -d/ -f2 | rev)
+    mainfile=$(ag -l -Q "$theme(" "$TARGET_DIR/src" --depth 1)
 
-    grep -m 1 -Eo '"[a-z]{2,3}",' $mainfile | cut -d'"' -f2
+    grep -m 1 -Eo '"[a-z]{2,3}",' "$mainfile" | cut -d'"' -f2
 }
 
-tmux has -t $SESSION &> /dev/null
-if [ $? != 0 ]; then
-    tmux new -s $SESSION -n Build -d
+if ! tmux has -t "$SESSION" &> /dev/null; then
+    tmux new -s "$SESSION" -n Build -d
         EXTPATH="build/outputs/apk/debug/aniyomi*.apk"
         if $IS_MULTISRC; then
-            openDir $ROOT
+            openDir "$ROOT"
             LANG=$(getMultisrcLanguage)
             GENERATE_CMD="gradle :multisrc:generateExtensions"
             BUILD_CMD="gradle :extensions:multisrc:${LANG}:${NAME}:assembleDebug"
             EXTPATH="generated-src/${LANG}/${NAME}/${EXTPATH}"
-            tmux send -t $SESSION "$GENERATE_CMD && $BUILD_CMD"
+            tmux send -t "$SESSION" "$GENERATE_CMD && $BUILD_CMD"
         else
-            openDir $TARGET_DIR
-            tmux send -t $SESSION "gradle assembleDebug"
+            openDir "$TARGET_DIR"
+            tmux send -t "$SESSION" "gradle assembleDebug"
         fi
         splitw
             if $IS_MULTISRC; then
-                openDir $ROOT
+                openDir "$ROOT"
             else
-                openDir $TARGET_DIR
+                openDir "$TARGET_DIR"
             fi
             tmuxCmd "EXTPATH=$EXTPATH"
-            tmux send -t $SESSION 'anitester $EXTPATH --proxy socks5://localhost:7173'
+            tmux send -t "$SESSION" "anitester \$EXTPATH --proxy socks5://localhost:7173"
 
     neww editor
         if $IS_MULTISRC; then
-            openDir $TARGET_DIR/src
+            openDir "$TARGET_DIR/src"
         else
-            openDir $TARGET_DIR/src/eu/kanade/tachiyomi/*xtension/*/*
+            openDir "$TARGET_DIR/src/eu/kanade/tachiyomi/*xtension/*/*"
         fi
-        tmux send -t $SESSION lvim
+        tmux send -t "$SESSION" lvim
 
     neww search
-        openDir $DEFAULT_DIR
+        openDir "$DEFAULT_DIR"
         splitw
-            openDir $HOME/git/aniyomi
+            openDir "$HOME/git/aniyomi"
 
     neww testes
-        openDir $HOME/git/teste
+        openDir "$HOME/git/teste"
         splitw
-            tmux send -t $SESSION "scrcpy -S -b2m -m1024 -t --power-off-on-close"
+            tmux send -t "$SESSION" "scrcpy -S -b2m -m1024 -t --power-off-on-close"
 
     neww monitor
         #tmuxCmd "su -c 'top -d 10 -s 3 -o PID,USER,RES,CMDLINE'"
-        openDir $ROOT
+        openDir "$ROOT"
         tmuxCmd mitmproxy
         splitw
             # tmuxCmd "python ~/pidcat xyz.jmir.tachiyomi.mi.debug"
-            openDir $ROOT
+            openDir "$ROOT"
             tmuxCmd "rogcat -N xyz.jmir.tachiyomi.mi.debug"
 fi
 
 if [[ -z "$TMUX" ]]; then
-    tmux attach -t $SESSION
+    tmux attach -t "$SESSION"
 else
     echo "Detach from the current session and attach to $SESSION."
 fi
