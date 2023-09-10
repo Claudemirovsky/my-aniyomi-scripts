@@ -11,7 +11,7 @@ addDep(){
     # if it isn't there. It will create a dependencies {} block if necessary.
     if ! grep -q "$implStr" "$file"; then
         if ! grep -q "dependencies" "$file"; then
-            sed -i "s/}/}\n\n$depsStr\n$implStr\n}\n/" "$file"
+            sed -i "s/apply from:/$depsStr\n$implStr\n}\n\napply from:/" "$file"
         else
             sed -i "s/$depsStr/$depsStr\n$implStr/" "$file"
         fi
@@ -56,6 +56,7 @@ if [[ ! -d ../lib/$extractorLib ]]; then
     echo "Library $extractorLib does not exist!"
     exit
 fi
+
 extractorClass=$(getExtractorClass "$extractorLib")
 # base path of extensions that have the extractor class
 extensions=$(fd -i "$extractorClass" | cut -d "/" -f 1-2)
