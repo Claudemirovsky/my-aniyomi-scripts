@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
+
 # usage: addDep <libname> <build.gradle path>
-# ex: addDep streamtape-extractor src/en/zoro/build.gradle
+# example: addDep streamtape-extractor src/en/zoro/build.gradle
 addDep(){
     local implStr="    implementation(project(':lib-$1'))"
     local file=$2
@@ -33,8 +34,8 @@ changeImport(){
     fi
     # package of the extractor lib, like "eu.kanade.tachiyomi.lib.<NAME>"
     local importStr="import $package.$className"
-    if ! grep -q "$importStr" $fileName; then
-        sed -i "s/import .*$className/$importStr/" $fileName
+    if ! grep -qi "$importStr" $fileName; then
+        sed -i "s/import .*$className/$importStr/i" $fileName
     fi
 }
 
@@ -56,7 +57,7 @@ if [[ ! -d ../lib/$extractorLib ]]; then
 fi
 extractorClass=$(getExtractorClass $extractorLib)
 # base path of extensions that have the extractor class
-extensions=$(fd $extractorClass | cut -d "/" -f 1-2)
+extensions=$(fd -i $extractorClass | cut -d "/" -f 1-2)
 changedClasses=""
 completed=0
 all=$(echo $extensions | tr " " "\n"  | wc -l)
@@ -68,7 +69,8 @@ for ext in $extensions; do
     addDep $extractorLib $buildFile
 
     fullPath="$ext/src/eu/kanade/tachiyomi/animeextension/$pkgPath"
-    extractor="$fullPath/extracto*/$extractorClass.kt"
+    extractor=$(fd -i "$extractorClass" "$fullPath")
+
     $EDITOR $extractor 
     rm $extractor
 
@@ -80,7 +82,7 @@ for ext in $extensions; do
     for mainFile in $mainFiles; do
         changeImport $mainFile $extractorLib $extractorClass
 
-        matchLine=$(grep -n "$extractorClass(" $mainFile | cut -d: -f1)
+        matchLine=$(grep -ni "$extractorClass(" $mainFile | cut -d: -f1)
         if [[ -z "$matchLine" ]]; then
           $EDITOR $mainFile
         else
