@@ -52,10 +52,10 @@ if ! tmux has -t "$SESSION" &> /dev/null; then
         EXTPATH="build/outputs/apk/debug/aniyomi*.apk"
         if $IS_MULTISRC; then
             openDir "$ROOT"
-            LANG=$(getMultisrcLanguage)
+            EXTLANG=$(getMultisrcLanguage)
             GENERATE_CMD="gradle :multisrc:generateExtensions"
-            BUILD_CMD="gradle :extensions:multisrc:${LANG}:${NAME}:assembleDebug"
-            EXTPATH="generated-src/${LANG}/${NAME}/${EXTPATH}"
+            BUILD_CMD="gradle :extensions:multisrc:${EXTLANG}:${NAME}:assembleDebug"
+            EXTPATH="generated-src/${EXTLANG}/${NAME}/${EXTPATH}"
             tmux send -t "$SESSION" "$GENERATE_CMD && $BUILD_CMD"
         else
             openDir "$TARGET_DIR"
