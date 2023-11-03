@@ -38,11 +38,24 @@ splitw(){
     tmux split-window -t "$SESSION"
 }
 
-getMultisrcLanguage() {
-    theme=$(echo "$TARGET_DIR" | rev | cut -d/ -f2 | rev)
-    mainfile=$(ag -l -Q "$theme(" "$TARGET_DIR/src" --depth 1)
+getMainKotlinFile() {
+    if $IS_MULTISRC; then
+        # Shows the complete path to the class file
+        theme=$(echo "$TARGET_DIR" | rev | cut -d/ -f2 | rev)
+        ag -l -Q "$theme(" "$TARGET_DIR/src" --depth 1
+    else
+        # Shows only the classname
+        className=$(
+            grep extClass "$TARGET_DIR/build.gradle" \
+                | grep -Eo "\.[A-Z][A-Za-z0-9]+" \
+                | cut -d. -f2
+        )
+        echo "$className.kt"
+    fi
+}
 
-    grep -m 1 -Eo '"[a-zA-Z-]{2,5}",' "$mainfile" \
+getMultisrcLanguage() {
+    grep -m 1 -Eo '"[a-zA-Z-]{2,5}",' "$(getMainKotlinFile)" \
         | cut -d'"' -f2 \
         | cut -d'-' -f1
 }
@@ -76,7 +89,7 @@ if ! tmux has -t "$SESSION" &> /dev/null; then
         else
             openDir "$TARGET_DIR/src/eu/kanade/tachiyomi/*xtension/*/*"
         fi
-        tmux send -t "$SESSION" lvim
+        tmux send -t "$SESSION" "lvim $(getMainKotlinFile)"
 
     neww search
         openDir "$DEFAULT_DIR"
