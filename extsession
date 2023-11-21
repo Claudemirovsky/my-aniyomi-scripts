@@ -99,7 +99,7 @@ if ! tmux has -t "$SESSION" &> /dev/null; then
     neww testes
         openDir "$HOME/git/teste"
         splitw
-            tmux send -t "$SESSION" "scrcpy -S -b2m -m1024 -t --power-off-on-close"
+            tmux send -t "$SESSION" "scrcpy -S -b8M -m1024 -t --power-off-on-close --no-audio --print-fps"
 
     neww monitor
         #tmuxCmd "su -c 'top -d 10 -s 3 -o PID,USER,RES,CMDLINE'"
@@ -108,7 +108,7 @@ if ! tmux has -t "$SESSION" &> /dev/null; then
         splitw
             # tmuxCmd "python ~/pidcat xyz.jmir.tachiyomi.mi.debug"
             openDir "$ROOT"
-            tmuxCmd "rogcat -N xyz.jmir.tachiyomi.mi.debug"
+            tmux send -t "$SESSION" "rogcat -N xyz.jmir.tachiyomi.mi.debug"
 fi
 
 if [[ -z "$TMUX" ]]; then
