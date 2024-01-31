@@ -3,21 +3,15 @@
 set -o pipefail
 
 [[ "${1}" == *t* ]] && SESSION=tachiyomi || SESSION=aniyomi
-[[ "${1}" == *m* ]] && IS_MULTISRC=true || IS_MULTISRC=false
 
 NAME=$2
 ROOT="$HOME/git/${SESSION}-extensions"
 
-if $IS_MULTISRC; then
-    DEFAULT_DIR="${ROOT}/multisrc/overrides"
-else
-    DEFAULT_DIR="${ROOT}/src"
-fi
+DEFAULT_DIR="${ROOT}/src"
 
 TARGET_DIR=$(compgen -G "${DEFAULT_DIR}/*/${NAME}") # Glob expansion moment
 
 if [[ ! -e "$TARGET_DIR" ]]; then
-    if $IS_MULTISRC; then echo -n "(multisrc) "; fi
     echo "Extension ${NAME} does not exist!"
     exit
 fi
@@ -39,25 +33,14 @@ splitw(){
 }
 
 getMainKotlinFile() {
-    if $IS_MULTISRC; then
-        # Shows the complete path to the class file
-        theme=$(echo "$TARGET_DIR" | rev | cut -d/ -f2 | rev)
-        rg -l -i -F "$theme(" "$TARGET_DIR/src" --max-depth 1
-    else
-        # Shows only the classname
-        className=$(
-            grep extClass "$TARGET_DIR/build.gradle" \
-                | grep -Eo "\.[A-Z][A-Za-z0-9]+" \
-                | cut -d. -f2
-        )
-        echo "$className.kt"
-    fi
-}
-
-getMultisrcLanguage() {
-    grep -m 1 -Eo '"[a-zA-Z-]{2,5}",' "$(getMainKotlinFile)" \
-        | cut -d'"' -f2 \
-        | cut -d'-' -f1
+    # Shows only the classname
+    className=$(
+        grep extClass "$TARGET_DIR/build.gradle" \
+            | grep -Eo "\.[A-Z][A-Za-z0-9]+" \
+            | cut -d. -f2 \
+            | sed "s/Generator//"
+    )
+    echo "$className.kt"
 }
 
 if ! tmux has -t "$SESSION" &> /dev/null; then
@@ -68,34 +51,17 @@ if ! tmux has -t "$SESSION" &> /dev/null; then
             TASK=assembleDebug
         fi
         EXTPATH="build/outputs/apk/debug/*iyomi*.apk"
-        if $IS_MULTISRC; then
-            openDir "$ROOT"
-            EXTLANG=$(getMultisrcLanguage)
-            GENERATE_CMD="gradle :multisrc:generateExtensions"
-            BUILD_CMD="gradle :extensions:multisrc:${EXTLANG}:${NAME}:$TASK"
-            EXTPATH="generated-src/${EXTLANG}/${NAME}/${EXTPATH}"
-            tmux send -t "$SESSION" "$GENERATE_CMD && $BUILD_CMD"
-        else
-            openDir "$TARGET_DIR"
-            tmux send -t "$SESSION" "gradle $TASK"
-        fi
+        openDir "$TARGET_DIR"
+        tmux send -t "$SESSION" "gradle $TASK"
         splitw
-            if $IS_MULTISRC; then
-                openDir "$ROOT"
-            else
-                openDir "$TARGET_DIR"
-            fi
+            openDir "$TARGET_DIR"
             tmuxCmd "EXTPATH=$EXTPATH"
             if [[ $SESSION == "aniyomi" ]]; then
                 tmux send -t "$SESSION" "anitester \$EXTPATH --proxy socks5://localhost:7173"
             fi
 
     neww editor
-        if $IS_MULTISRC; then
-            openDir "$TARGET_DIR/src"
-        else
-            openDir "$TARGET_DIR/src/eu/kanade/tachiyomi/*xtension/*/*"
-        fi
+        openDir "$TARGET_DIR/src/eu/kanade/tachiyomi/*xtension/*/*"
         tmux send -t "$SESSION" "lvim $(getMainKotlinFile)"
 
     neww search
