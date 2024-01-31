@@ -1,10 +1,26 @@
 #!/usr/bin/bash
 
+if [[ $1 == "t" ]]; then
+    name="Tachiyomi"
+    prefix=""
+else 
+    name="Aniyomi"
+    prefix="anime"
+fi
+
+# Just to show things like "all.mangadex -> Success" in the terminal
+uninstaller() {
+    local package=$1
+    echo "$(cut -f5- -d. <<< $package) -> $(adb uninstall $package)" 
+}
+
+export -f uninstaller
 # Credits: Vetle (Tachiyomi contributor)
 # https://discord.com/channels/349436576037732353/566590778323763207/1142395849922596894
-while read -n1 -srp "Press any key to uninstall Aniyomi extensions. ^C to quit. "; do 
-    adb shell pm list packages eu.kanade.tachiyomi.animeextension. \
+while read -n1 -srp "Press any key to uninstall $name extensions. ^C to quit. "; do
+    echo
+    adb shell pm list packages eu.kanade.tachiyomi.${prefix}extension. \
         | cut -d: -f2 \
-        | parallel adb uninstall {} 
+        | SHELL=bash parallel uninstaller
     echo
 done
