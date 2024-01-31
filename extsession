@@ -2,8 +2,8 @@
 
 set -o pipefail
 
-[ "${1}" == "t" ] && SESSION=tachiyomi || SESSION=aniyomi
-[ "${1}" == "m" ] && IS_MULTISRC=true || IS_MULTISRC=false
+[[ "${1}" == *t* ]] && SESSION=tachiyomi || SESSION=aniyomi
+[[ "${1}" == *m* ]] && IS_MULTISRC=true || IS_MULTISRC=false
 
 NAME=$2
 ROOT="$HOME/git/${SESSION}-extensions"
@@ -42,7 +42,7 @@ getMainKotlinFile() {
     if $IS_MULTISRC; then
         # Shows the complete path to the class file
         theme=$(echo "$TARGET_DIR" | rev | cut -d/ -f2 | rev)
-        ag -l -Q "$theme(" "$TARGET_DIR/src" --depth 1
+        rg -l -i -F "$theme(" "$TARGET_DIR/src" --max-depth 1
     else
         # Shows only the classname
         className=$(
@@ -62,17 +62,22 @@ getMultisrcLanguage() {
 
 if ! tmux has -t "$SESSION" &> /dev/null; then
     tmux new -s "$SESSION" -n Build -d
-        EXTPATH="build/outputs/apk/debug/aniyomi*.apk"
+        if [[ "$SESSION" == "tachiyomi" ]]; then
+            TASK=installDebug
+        else
+            TASK=assembleDebug
+        fi
+        EXTPATH="build/outputs/apk/debug/*iyomi*.apk"
         if $IS_MULTISRC; then
             openDir "$ROOT"
             EXTLANG=$(getMultisrcLanguage)
             GENERATE_CMD="gradle :multisrc:generateExtensions"
-            BUILD_CMD="gradle :extensions:multisrc:${EXTLANG}:${NAME}:assembleDebug"
+            BUILD_CMD="gradle :extensions:multisrc:${EXTLANG}:${NAME}:$TASK"
             EXTPATH="generated-src/${EXTLANG}/${NAME}/${EXTPATH}"
             tmux send -t "$SESSION" "$GENERATE_CMD && $BUILD_CMD"
         else
             openDir "$TARGET_DIR"
-            tmux send -t "$SESSION" "gradle assembleDebug"
+            tmux send -t "$SESSION" "gradle $TASK"
         fi
         splitw
             if $IS_MULTISRC; then
@@ -81,7 +86,9 @@ if ! tmux has -t "$SESSION" &> /dev/null; then
                 openDir "$TARGET_DIR"
             fi
             tmuxCmd "EXTPATH=$EXTPATH"
-            tmux send -t "$SESSION" "anitester \$EXTPATH --proxy socks5://localhost:7173"
+            if [[ $SESSION == "aniyomi" ]]; then
+                tmux send -t "$SESSION" "anitester \$EXTPATH --proxy socks5://localhost:7173"
+            fi
 
     neww editor
         if $IS_MULTISRC; then
@@ -108,7 +115,7 @@ if ! tmux has -t "$SESSION" &> /dev/null; then
         splitw
             # tmuxCmd "python ~/pidcat xyz.jmir.tachiyomi.mi.debug"
             openDir "$ROOT"
-            tmux send -t "$SESSION" "rogcat -N xyz.jmir.tachiyomi.mi.debug"
+            tmux send -t "$SESSION" "rogcat -p $SESSION"
 fi
 
 if [[ -z "$TMUX" ]]; then
