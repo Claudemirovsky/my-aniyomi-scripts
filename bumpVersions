@@ -1,102 +1,64 @@
-#!/bin/bash
-versionStr="extVersionCode ="
-multisrcVersionStr="overrideVersionCode ="
-bumpedFiles=""
+#!/usr/bin/env python3
 
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
+import itertools
+from pathlib import Path
+import re
+import sys
 
-# cut -d "=" -f 2 -> string.split("=")[1]
-# "extVersionCode = 6" -> ["extVersionCode ", " 6"] -> " 6" -> "6"
-getValue() { cut -d "=" -f 2 | cut -d " " -f 2;}
-getVersion() {
-    if [[ $1 =~ ^multisrc/ ]]; then
-        # We are going to be piped, so no file specified, just read from stdin.
-        grep -Po "$multisrcVersionStr \d+"  | getValue
-    else
-        grep "$versionStr" "$1" | getValue
-    fi
-}
+VERSION_STR = "VersionCode ="
+VERSION_REGEX = re.compile(f"{VERSION_STR} (\\d+)")
+BUMPED_FILES: list[Path] = []
 
-# expected input: multisrc/overrides/<theme>/<override>/....
-# if override is default, then it will bump all overrides.
-bumpMultisrcVersion() {
-    local overridePath=$1
-    # Prevents bumping extensions multiple times.
-    # Ex: When a theme uses a extractor per default, but one extension(override)
-    # also uses another, so if both libs are modifyed, such extension will be
-    # bumped only once instead of two times.
-    if [[ $bumpedFiles =~( |^)$overridePath( |$) ]]; then
-        return 0
-    fi
+BOT_EMAIL = "aniyomi-bot@aniyomi.org"
+BOT_NAME = "aniyomi-bot[bot]"
 
-    bumpedFiles+="$overridePath "
+def has_match(query: str, file: Path) -> tuple[Path, bool]:
+    return (file, query in file.read_text())
 
-    # Bump all extensions from a multisrc that implements a lib by default
-    if [[ $overridePath =~ .*/default/.* ]]; then
-        local themeBase=$(echo $overridePath | cut -d/ -f-3)
-        for file in $(ls $themeBase | grep -v default); do
-            bumpMultisrcVersion $themeBase/$file/
-        done
-    else
-        local theme=$(echo $overridePath | cut -d/ -f3)
-        local themePath="multisrc/src/main/java/eu/kanade/tachiyomi/multisrc/$theme"
-        local sourceName=$(echo $overridePath | cut -d/ -f4)
-        local generator=$(echo $themePath/*Generator.kt)
-        bumpedFiles+="$generator " # Needed to commit the changes
+def find_files_with_match(query: str, include_multisrc: bool = True) -> list[Path]:
+    files = Path("src").glob("*/*/build.gradle")
+    if include_multisrc:
+        files = itertools.chain(files, Path("lib-multisrc").glob("*/build.gradle.kts"))
 
-        local sourceLine=$(grep -i $sourceName $generator)
-        local oldVersion=$(echo $sourceLine | getVersion $generator)
-        local newVersionStr="$multisrcVersionStr $((oldVersion + 1))"
+    # Prevent bumping files twice.
+    files = filter(lambda file: file not in BUMPED_FILES, files)
 
-        if [[ $sourceLine =~ .*$multisrcVersionStr.* ]]; then
-            # if the override already have a "overrideVersionCode" param at 
-            # the generator, then just bump it
-            local newSourceLine=${sourceLine/$multisrcVersionStr $oldVersion/$newVersionStr}
-        else
-            # else, add overrideVersionCode param to its line on the generator
-            local newSourceLine=${sourceLine/)/, $newVersionStr)}
-        fi
+    # Use multiple threads to find matches.
+    with ThreadPoolExecutor() as executor:
+        futures = [executor.submit(has_match, query, file) for file in files]
+        results = map(Future.result, as_completed(futures))
+        return [path for path, result in results if result]
 
-        echo -e "\nmultisrc $sourceName($theme): $oldVersion -> $((oldVersion + 1))\n"
-        sed -i "s@$sourceLine@$newSourceLine@g" $generator
-    fi
-}
+def replace_version(match: re.Match) -> str:
+    version = int(match.group(1))
+    print(f"{version} -> {version + 1}")
+    return f"{VERSION_STR} {version + 1}"
 
-bumpVersion() {
-    local file=$1
-    local oldVersion=$(getVersion $file)
-    local newVersion=$((oldVersion + 1))
+def bump_version(file: Path):
+    BUMPED_FILES.append(file)
+    with file.open("r+") as f:
+        print(f"\n{file}: ", end="")
+        text = VERSION_REGEX.sub(replace_version, f.read())
+        # Move the cursor to the start again, to prevent writing at the end
+        f.seek(0) 
+        f.write(text)
 
-    echo -e "\n$file: $oldVersion -> $newVersion\n"
-    sed -i "s/$versionStr $oldVersion/$versionStr $newVersion/" $file
-}
+def bump_lib_multisrc(theme: str):
+    for file in find_files_with_match(f"themePkg = '{theme}'", include_multisrc=False):
+        bump_version(file)
 
-findAndBump() {
-    for lib in $@; do
-        for file in $(grep -l -R ":lib-$lib" --include "build.gradle" --include "additional.gradle"); do
-            # prevent bumping the same extension multiple times
-            if [[ ! $bumpedFiles =~ ( |^)$file( |$) ]]; then
-                if [[ $file =~ ^multisrc ]]; then
-                    bumpMultisrcVersion ${file/additional.gradle/}
-                else
-                    bumpedFiles+="$file "
-                    bumpVersion $file
-                fi
-            fi
-        done
-    done
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        # Regex to match the lib name in the path, like "unpacker" or "dood-extractor".
+        lib_regex = re.compile(r"lib/([a-z0-9-]+)/")
+        # Find matches and remove None results.
+        matches = filter(None, map(lib_regex.search, sys.argv[1:]))
+        for match in matches:
+            project_path = ":lib:" + match.group(1)
+            for file in find_files_with_match(project_path):
+                if file.parent.parent.name == "lib-multisrc":
+                    bump_lib_multisrc(file.parent.name)
+                else:
+                    bump_version(file)
 
-    commitChanges $bumpedFiles
-}
-
-commitChanges() {
-    if [[ -n "$@" ]]; then
-        git add $@
-        git commit -S -m "[skip ci] chore: Mass-bump on extensions"
-    fi
-}
-
-# lib/cryptoaes/build.gradle.kts -> lib/cryptoaes -> cryptoaes
-modified=$(echo $@ | tr " " "\n" | grep -Eo "^lib/\w+" | sort | uniq | cut -c 5-)
-if [[ -n "$modified" ]]; then
-    findAndBump $modified
-fi
